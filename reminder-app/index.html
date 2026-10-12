@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nhắc Việc Hằng Ngày</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<meta name="theme-color" content="#2563eb">
+<style>
+:root{--bg:#f5f7fa;--card:#fff;--text:#1f2937;--muted:#6b7280;--line:#e5e7eb;--pri:#2563eb;--ok:#16a34a;--warn:#dc2626}
+@media(prefers-color-scheme:dark){:root{--bg:#0f172a;--card:#1e293b;--text:#e5e7eb;--muted:#94a3b8;--line:#334155}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text)}
+main{max-width:640px;margin:0 auto;padding:16px}
+h1{font-size:1.3rem;margin:0}
+header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.sub{color:var(--muted);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.bar{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--ok);width:0;transition:width .3s}
+.tabs{display:flex;gap:6px;margin:12px 0}
+.tabs button{flex:1}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);padding:8px 12px;border-radius:8px;cursor:pointer}
+button.primary{background:var(--pri);border-color:var(--pri);color:#fff}
+button.active{background:var(--pri);border-color:var(--pri);color:#fff}
+button.small{padding:4px 8px;font-size:.8rem}
+.item{display:flex;gap:10px;align-items:center}
+.item .time{font-weight:700;min-width:52px}
+.item .body{flex:1;min-width:0}
+.item .title{font-weight:600;overflow-wrap:anywhere}
+.item.done{opacity:.55}.item.done .title{text-decoration:line-through}
+.item.due .time{color:var(--warn)}
+.chk{width:26px;height:26px;border-radius:50%;border:2px solid var(--pri);background:transparent;padding:0;flex:none}
+.done .chk{background:var(--ok);border-color:var(--ok);color:#fff}
+.empty{text-align:center;color:var(--muted);padding:24px}
+label{display:block;margin:10px 0 4px;font-size:.85rem;color:var(--muted)}
+input,select,textarea{width:100%;font:inherit;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--text)}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.days{display:flex;gap:4px}.days button{flex:1;padding:6px 0}
+.hidden{display:none}
+.presets{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}
+dialog{border:0;border-radius:14px;padding:20px;max-width:340px;width:90%;background:var(--card);color:var(--text)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+.tag{font-size:.7rem;padding:2px 6px;border-radius:99px;background:var(--line);color:var(--muted);margin-left:4px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>⏰ Nhắc Việc Hằng Ngày</h1><div class="sub" id="today"></div></div>
+    <button class="small" id="btnNotif">🔔 Bật thông báo</button>
+  </header>
+
+  <section id="viewToday">
+    <div class="card"><b id="progText"></b><div class="bar"><i id="progBar"></i></div></div>
+    <div id="list"></div>
+  </section>
+
+  <section id="viewManage" class="hidden">
+    <div class="presets" id="presets"></div>
+    <div id="manageList"></div>
+  </section>
+
+  <div class="tabs">
+    <button id="tabToday" class="active">📅 Hôm nay</button>
+    <button id="tabManage">⚙️ Quản lý</button>
+    <button id="tabAdd" class="primary">＋ Thêm</button>
+  </div>
+</main>
+
+<dialog id="formDlg">
+  <form method="dialog" id="form">
+    <b id="formTitle">Thêm nhắc nhở</b>
+    <label>Loại</label>
+    <select id="fType">
+      <option value="work">💼 Công việc</option>
+      <option value="water">💧 Uống nước</option>
+      <option value="med">💊 Uống thuốc</option>
+      <option value="other">📌 Khác</option>
+    </select>
+    <label>Nội dung</label>
+    <input id="fTitle" required maxlength="80" placeholder="VD: Uống thuốc huyết áp">
+    <label>Ghi chú (tuỳ chọn)</label>
+    <input id="fNote" maxlength="120" placeholder="VD: sau ăn sáng, 1 viên">
+    <label>Kiểu lặp</label>
+    <select id="fMode">
+      <option value="times">Giờ cố định trong ngày</option>
+      <option value="interval">Lặp lại mỗi N phút</option>
+    </select>
+    <div id="boxTimes">
+      <label>Các giờ (cách nhau dấu phẩy)</label>
+      <input id="fTimes" placeholder="08:00, 13:00, 20:00">
+    </div>
+    <div id="boxInterval" class="hidden">
+      <div class="row">
+        <div><label>Từ giờ</label><input type="time" id="fStart" value="08:00"></div>
+        <div><label>Đến giờ</label><input type="time" id="fEnd" value="20:00"></div>
+        <div><label>Mỗi (phút)</label><input type="number" id="fEvery" min="5" max="720" value="120"></div>
+      </div>
+    </div>
+    <label>Ngày trong tuần</label>
+    <div class="days" id="fDays"></div>
+    <div class="row" style="margin-top:16px">
+      <button type="button" id="fCancel">Huỷ</button>
+      <button type="submit" class="primary" id="fSave">Lưu</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="alertDlg">
+  <div style="font-size:2rem;text-align:center" id="aIcon">⏰</div>
+  <h2 id="aTitle" style="text-align:center;margin:6px 0"></h2>
+  <div id="aNote" class="sub" style="text-align:center"></div>
+  <div class="row" style="margin-top:16px">
+    <button id="aSnooze">Nhắc lại sau 10'</button>
+    <button id="aDone" class="primary">✔ Đã xong</button>
+  </div>
+</dialog>
+
+<script>
+const $ = id => document.getElementById(id);
+const TYPES = {work:'💼',water:'💧',med:'💊',other:'📌'};
+const DAY_LABELS = ['CN','T2','T3','T4','T5','T6','T7'];
+const PRESETS = [
+  {title:'Uống nước',type:'water',mode:'interval',interval:{start:'08:00',end:'20:00',every:120},days:[0,1,2,3,4,5,6]},
+  {title:'Uống thuốc sáng',type:'med',mode:'times',times:['08:00'],days:[0,1,2,3,4,5,6]},
+  {title:'Uống thuốc tối',type:'med',mode:'times',times:['20:00'],days:[0,1,2,3,4,5,6]},
+  {title:'Họp đầu ngày',type:'work',mode:'times',times:['09:00'],days:[1,2,3,4,5]},
+  {title:'Đứng dậy vận động',type:'other',mode:'interval',interval:{start:'09:00',end:'17:00',every:60},days:[1,2,3,4,5]}
+];
+
+// ---------- storage ----------
+function load(){
+  try{ return JSON.parse(localStorage.getItem('nhacviec')) || {}; }catch(e){ return {}; }
+}
+const S = Object.assign({reminders:[],done:{},fired:{},snooze:{}}, load());
+function save(){ try{ localStorage.setItem('nhacviec', JSON.stringify(S)); }catch(e){} }
+
+// ---------- time helpers ----------
+const pad = n => String(n).padStart(2,'0');
+const dateKey = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+const toHM = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const validTime = t => /^([01]?\d|2[0-3]):[0-5]\d$/.test(t);
+const normTime = t => toHM(toMin(t));
+
+function occurrences(r, date){
+  if(!r.enabled || !r.days.includes(date.getDay())) return [];
+  if(r.mode === 'times') return [...new Set(r.times)].sort();
+  const {start,end,every} = r.interval, out = [];
+  for(let m = toMin(start); m <= toMin(end); m += every) out.push(toHM(m));
+  return out;
+}
+function todayItems(now = new Date()){
+  const dk = dateKey(now), items = [];
+  for(const r of S.reminders) for(const t of occurrences(r, now)) items.push({r, t, key:`${dk}|${r.id}|${t}`});
+  return items.sort((a,b) => a.t.localeCompare(b.t));
+}
+
+// ---------- notify ----------
+let audioCtx;
+function beep(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    [0,0.25,0.5].forEach(d => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.frequency.value = 880; o.connect(g); g.connect(audioCtx.destination);
+      g.gain.setValueAtTime(0.2, audioCtx.currentTime + d);
+      g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d + 0.2);
+      o.start(audioCtx.currentTime + d); o.stop(audioCtx.currentTime + d + 0.2);
+    });
+  }catch(e){}
+}
+async function systemNotify(title, body){
+  if(!('Notification' in window) || Notification.permission !== 'granted') return;
+  try{
+    const reg = 'serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : null;
+    if(reg) reg.showNotification(title, {body, icon:'icon.svg', tag:title, requireInteraction:true});
+    else new Notification(title, {body, icon:'icon.svg'});
+  }catch(e){}
+}
+const alertQueue = []; let alertCurrent = null;
+function showAlert(item){
+  alertQueue.push(item);
+  if(!alertCurrent) nextAlert();
+}
+function nextAlert(){
+  alertCurrent = alertQueue.shift();
+  if(!alertCurrent){ if($('alertDlg').open) $('alertDlg').close(); return; }
+  const {r,t} = alertCurrent;
+  $('aIcon').textContent = TYPES[r.type] || '⏰';
+  $('aTitle').textContent = r.title;
+  $('aNote').textContent = `${t}${r.note ? ' · ' + r.note : ''}`;
+  if(!$('alertDlg').open) $('alertDlg').showModal();
+}
+$('aDone').onclick = () => { S.done[alertCurrent.key] = true; save(); render(); nextAlert(); };
+$('aSnooze').onclick = () => { S.snooze[alertCurrent.key] = Date.now() + 10*60000; save(); nextAlert(); };
+
+// ---------- scheduler ----------
+const GRACE_MIN = 30; // chỉ nhắc nếu trễ không quá 30 phút (mở app muộn sẽ bỏ qua mục quá cũ)
+function tick(){
+  const now = new Date(), nowMin = now.getHours()*60 + now.getMinutes();
+  let changed = false;
+  for(const it of todayItems(now)){
+    if(S.done[it.key]) continue;
+    const snoozeUntil = S.snooze[it.key];
+    if(snoozeUntil){
+      if(Date.now() >= snoozeUntil){ delete S.snooze[it.key]; changed = true; fire(it); }
+      continue;
+    }
+    const diff = nowMin - toMin(it.t);
+    if(diff >= 0 && !S.fired[it.key]){
+      S.fired[it.key] = 1; changed = true;
+      if(diff <= GRACE_MIN) fire(it);
+    }
+  }
+  if(changed) save();
+  render();
+}
+function fire(it){
+  beep();
+  systemNotify(`${TYPES[it.r.type]||'⏰'} ${it.r.title}`, `${it.t}${it.r.note ? ' · ' + it.r.note : ''}`);
+  showAlert(it);
+}
+function cleanup(){
+  const keep = new Set([dateKey(new Date())]);
+  for(let i=1;i<=7;i++){ const d = new Date(); d.setDate(d.getDate()-i); keep.add(dateKey(d)); }
+  for(const k of ['done','fired','snooze']) for(const key of Object.keys(S[k])) if(!keep.has(key.split('|')[0])) delete S[k][key];
+  save();
+}
+
+// ---------- render ----------
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function render(){
+  const now = new Date(), nowHM = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  $('today').textContent = now.toLocaleDateString('vi-VN',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+  const items = todayItems(now), doneN = items.filter(i => S.done[i.key]).length;
+  $('progText').textContent = items.length ? `Hoàn thành ${doneN}/${items.length} nhắc nhở hôm nay` : 'Hôm nay chưa có nhắc nhở nào';
+  $('progBar').style.width = items.length ? (doneN/items.length*100) + '%' : '0';
+  $('list').innerHTML = items.length ? items.map(i => {
+    const isDone = !!S.done[i.key], due = !isDone && i.t <= nowHM;
+    return `<div class="card item ${isDone?'done':''} ${due?'due':''}">
+      <button class="chk" data-key="${esc(i.key)}" aria-label="Đánh dấu xong">${isDone?'✔':''}</button>
+      <div class="time">${i.t}</div>
+      <div class="body"><div class="title">${TYPES[i.r.type]||''} ${esc(i.r.title)}</div>${i.r.note?`<div class="sub">${esc(i.r.note)}</div>`:''}</div>
+    </div>`;
+  }).join('') : '<div class="empty">Bấm “＋ Thêm” hoặc vào “Quản lý” để chọn mẫu nhanh (uống nước, uống thuốc…).</div>';
+
+  $('manageList').innerHTML = S.reminders.length ? S.reminders.map(r => {
+    const when = r.mode === 'times' ? r.times.join(', ') : `mỗi ${r.interval.every}' (${r.interval.start}–${r.interval.end})`;
+    const days = r.days.length === 7 ? 'Hằng ngày' : r.days.map(d => DAY_LABELS[d]).join(' ');
+    return `<div class="card item" style="${r.enabled?'':'opacity:.5'}">
+      <div class="body"><div class="title">${TYPES[r.type]||''} ${esc(r.title)}</div>
+      <div class="sub">${esc(when)} · ${days}${r.note?' · '+esc(r.note):''}</div></div>
+      <button class="small" data-act="toggle" data-id="${r.id}">${r.enabled?'Tắt':'Bật'}</button>
+      <button class="small" data-act="edit" data-id="${r.id}">Sửa</button>
+      <button class="small" data-act="del" data-id="${r.id}">Xoá</button>
+    </div>`;
+  }).join('') : '<div class="empty">Chưa có nhắc nhở nào.</div>';
+
+  const perm = 'Notification' in window ? Notification.permission : 'unsupported';
+  $('btnNotif').textContent = perm === 'granted' ? '🔔 Đã bật thông báo' : '🔔 Bật thông báo';
+  $('btnNotif').disabled = perm === 'granted' || perm === 'unsupported';
+}
+$('list').onclick = e => {
+  const b = e.target.closest('.chk'); if(!b) return;
+  const k = b.dataset.key; if(S.done[k]) delete S.done[k]; else S.done[k] = true;
+  save(); render();
+};
+$('manageList').onclick = e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const r = S.reminders.find(x => x.id === b.dataset.id); if(!r) return;
+  if(b.dataset.act === 'toggle') r.enabled = !r.enabled;
+  if(b.dataset.act === 'del' && confirm(`Xoá “${r.title}”?`)) S.reminders = S.reminders.filter(x => x !== r);
+  if(b.dataset.act === 'edit') return openForm(r);
+  save(); render();
+};
+$('presets').innerHTML = '<span class="sub" style="width:100%">Thêm nhanh:</span>' +
+  PRESETS.map((p,i) => `<button class="small" data-i="${i}">${TYPES[p.type]} ${p.title}</button>`).join('');
+$('presets').onclick = e => {
+  const b = e.target.closest('button'); if(!b) return;
+  addReminder(structuredClone(PRESETS[b.dataset.i])); render();
+};
+function addReminder(r){
+  S.reminders.push(Object.assign({id: Date.now().toString(36)+Math.random().toString(36).slice(2,6), note:'', enabled:true}, r));
+  save();
+}
+
+// ---------- form ----------
+let editing = null;
+$('fDays').innerHTML = DAY_LABELS.map((l,i) => `<button type="button" data-d="${i}">${l}</button>`).join('');
+$('fDays').onclick = e => { const b = e.target.closest('button'); if(b) b.classList.toggle('active'); };
+$('fMode').onchange = () => {
+  $('boxTimes').classList.toggle('hidden', $('fMode').value !== 'times');
+  $('boxInterval').classList.toggle('hidden', $('fMode').value !== 'interval');
+};
+function openForm(r){
+  editing = r || null;
+  $('formTitle').textContent = r ? 'Sửa nhắc nhở' : 'Thêm nhắc nhở';
+  $('fType').value = r ? r.type : 'work';
+  $('fTitle').value = r ? r.title : '';
+  $('fNote').value = r ? r.note : '';
+  $('fMode').value = r ? r.mode : 'times';
+  $('fTimes').value = r && r.times ? r.times.join(', ') : '';
+  $('fStart').value = r && r.interval ? r.interval.start : '08:00';
+  $('fEnd').value = r && r.interval ? r.interval.end : '20:00';
+  $('fEvery').value = r && r.interval ? r.interval.every : 120;
+  const days = r ? r.days : [0,1,2,3,4,5,6];
+  [...$('fDays').children].forEach(b => b.classList.toggle('active', days.includes(+b.dataset.d)));
+  $('fMode').onchange();
+  $('formDlg').showModal();
+}
+$('fCancel').onclick = () => $('formDlg').close();
+$('form').onsubmit = e => {
+  const mode = $('fMode').value;
+  const days = [...$('fDays').children].filter(b => b.classList.contains('active')).map(b => +b.dataset.d);
+  const data = {type:$('fType').value, title:$('fTitle').value.trim(), note:$('fNote').value.trim(), mode, days};
+  let err = '';
+  if(!days.length) err = 'Chọn ít nhất 1 ngày trong tuần.';
+  if(mode === 'times'){
+    const times = $('fTimes').value.split(/[,;\s]+/).filter(Boolean);
+    if(!times.length || !times.every(validTime)) err = err || 'Giờ không hợp lệ. Dùng dạng 08:00, 13:30.';
+    data.times = times.filter(validTime).map(normTime);
+  }else{
+    const every = +$('fEvery').value, start = $('fStart').value, end = $('fEnd').value;
+    if(!start || !end || toMin(end) < toMin(start)) err = err || 'Giờ kết thúc phải sau giờ bắt đầu.';
+    if(!(every >= 5)) err = err || 'Khoảng lặp tối thiểu 5 phút.';
+    data.interval = {start, end, every};
+  }
+  if(err){ e.preventDefault(); alert(err); return; }
+  if(editing) Object.assign(editing, data); else addReminder(data);
+  save(); render();
+};
+
+// ---------- tabs & boot ----------
+function showTab(name){
+  $('viewToday').classList.toggle('hidden', name !== 'today');
+  $('viewManage').classList.toggle('hidden', name !== 'manage');
+  $('tabToday').classList.toggle('active', name === 'today');
+  $('tabManage').classList.toggle('active', name === 'manage');
+}
+$('tabToday').onclick = () => showTab('today');
+$('tabManage').onclick = () => showTab('manage');
+$('tabAdd').onclick = () => openForm();
+$('btnNotif').onclick = async () => { await Notification.requestPermission(); render(); };
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+cleanup(); render(); tick();
+setInterval(tick, 15000);
+document.addEventListener('visibilitychange', () => { if(!document.hidden) tick(); });
+</script>
+</body>
+</html>
